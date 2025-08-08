@@ -1,3 +1,15 @@
 @import 'tailwindcss';
 @import '@repo/tailwind-config';
 @import '@repo/ui/styles.css';
+
+:root {
+  --font-inter: 'Inter', sans-serif;
+  --font-caveat: 'Caveat', cursive;
+}
+
+.font-inter {
+  font-family: var(--font-inter);
+}
+.font-caveat {
+  font-family: var(--font-caveat);
+}
