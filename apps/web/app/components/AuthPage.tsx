@@ -46,7 +46,8 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
     if (isSignin) {
       const token = response.data.token;
       localStorage.setItem("token", token);
-      router.push(`canvas/1`);
+      
+      router.push('dashboard')
     } else {
         router.push('/signin')
     }
@@ -63,7 +64,7 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
 
   return (
     <div className="min-h-screen bg-white font-inter flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Doodles */}
+      
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-16 left-12 w-28 h-8 opacity-60 transform -rotate-12">
           <ArrowDoodle />
