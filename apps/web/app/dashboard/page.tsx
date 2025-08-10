@@ -1,5 +1,208 @@
-export default function Dashboard(){
-    return <div>
-        
-    </div>
+"use client"
+import React, { useState } from "react";
+import { Plus, Users, Calendar, MoreVertical, Edit3 } from "lucide-react";
+import { Button } from "@repo/ui/button";
+import { ArrowDoodle } from "../doodleIcons/ArrowDoodle";
+import { WavyLinesDoodle } from "../doodleIcons/WavyLinesDoodle";
+import { ScribbleDoodle } from "../doodleIcons/ScribbleDoodle";
+import { CreateRoomModal } from "../components/CreateRoomModal";
+
+interface Room {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  lastModified: string;
+  collaborators: number;
 }
+
+interface DashboardProps {
+  onSignOut: () => void;
+}
+
+export default function Dashboard() {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [rooms, setRooms] = useState<Room[]>([
+    {
+      id: "1",
+      name: "Project Wireframes",
+      slug: "project-wireframes",
+      createdAt: "2024-01-15",
+      lastModified: "2024-01-20",
+      collaborators: 3,
+    },
+    {
+      id: "2",
+      name: "Team Brainstorm",
+      slug: "team-brainstorm",
+      createdAt: "2024-01-10",
+      lastModified: "2024-01-18",
+      collaborators: 5,
+    },
+    {
+      id: "3",
+      name: "Architecture Diagram",
+      slug: "architecture-diagram",
+      createdAt: "2024-01-08",
+      lastModified: "2024-01-16",
+      collaborators: 2,
+    },
+  ]);
+
+  const handleCreateRoom = (name: string, slug: string) => {
+    const newRoom: Room = {
+      id: Date.now().toString(),
+      name,
+      slug,
+      createdAt: new Date().toISOString().split("T")[0],
+      lastModified: new Date().toISOString().split("T")[0],
+      collaborators: 1,
+    };
+    setRooms([newRoom, ...rooms]);
+    setShowCreateModal(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-white font-inter relative overflow-hidden">      
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 left-16 w-24 h-6 opacity-30 transform -rotate-12 text-blue-500">
+          <ArrowDoodle />
+        </div>
+        <div className="absolute top-32 right-20 w-32 h-20 opacity-25 transform rotate-12 text-purple-500">
+          <WavyLinesDoodle />
+        </div>
+        <div className="absolute bottom-24 left-12 w-20 h-16 opacity-30 transform -rotate-6 text-red-500">
+          <ScribbleDoodle className="w-10 h-10" />
+        </div>
+      </div>
+
+      
+      <header className="border-b-2 border-gray-900 bg-white relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-caveat font-bold text-gray-900">
+                SketchBoard
+              </h1>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-600 font-light">
+                  Welcome back,
+                </p>
+                <p className="font-caveat font-bold text-lg text-gray-900">
+                  John Doe
+                </p>
+              </div>
+              <button                
+                className="text-gray-600 hover:text-gray-900 transition-colors font-medium text-sm underline"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">        
+        <div className="mb-8">
+          <h2 className="text-4xl font-bold text-gray-900 mb-2">
+            Your Sketch Rooms
+          </h2>
+          <p className="text-gray-600 font-light">
+            Create and manage your collaborative drawing spaces
+          </p>
+        </div>
+        
+        <div className="mb-8">
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            size="lg"
+            showArrow
+            className="transform hover:translate-x-1 hover:translate-y-1"
+          >
+            <Plus size={20} />
+            Create New Room
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {rooms.map((room, index) => (
+            <div key={room.id} className="group">
+              <div className="bg-white border-2 border-gray-900 p-6 transform transition-all duration-200 hover:translate-x-1 hover:translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+               
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-inter font-bold text-gray-900 mb-1">
+                      {room.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 font-mono">
+                      /{room.slug}
+                    </p>
+                  </div>
+                  <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <MoreVertical size={20} />
+                  </button>
+                </div>
+
+                
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Users size={16} className="mr-2" />
+                    <span>
+                      {room.collaborators} collaborator
+                      {room.collaborators !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Calendar size={16} className="mr-2" />
+                    <span>Modified {room.lastModified}</span>
+                  </div>
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full group-hover:bg-gray-900 group-hover:text-white"
+                >
+                  <Edit3 size={16} />
+                  Open Room
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          
+          {rooms.length === 0 && (
+            <div className="col-span-full text-center py-12">
+              <div className="bg-gray-50 border-2 border-gray-900 p-8 transform rotate-1 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                <div className="transform -rotate-1">
+                  <Edit3 size={48} className="mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-2xl font-caveat font-bold text-gray-900 mb-2">
+                    No rooms yet!
+                  </h3>
+                  <p className="text-gray-600 font-light mb-4">
+                    Create your first sketch room to get started
+                  </p>
+                  <Button onClick={() => setShowCreateModal(true)} showArrow>
+                    <Plus size={20} />
+                    Create Your First Room
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+      
+      {showCreateModal && (
+        <CreateRoomModal
+          onClose={() => setShowCreateModal(false)}
+          onCreateRoom={handleCreateRoom}
+        />
+      )}
+    </div>
+  );
+};
