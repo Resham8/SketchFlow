@@ -12,8 +12,10 @@ import {
 import { ParallelLinesDoodle } from "./doodleIcons/ParallelLinesDoodle";
 import { Button } from "@repo/ui/button";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -42,7 +44,7 @@ export default function Home() {
               >
                 About
               </a>
-              <Button>Start Sketching</Button>
+              <Button onClick={() => {router.push("/signin")}}>Start Sketching</Button>
             </div>
 
             <div className="md:hidden">
@@ -91,7 +93,7 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center mb-16">
-            <button></button>
+            <Button onClick={() => {router.push("/signup")}} >Let's get Started</Button>
           </div>
         </div>
       </section>

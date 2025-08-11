@@ -106,6 +106,27 @@ userRouter.post("/room", middleware, async (req, res) => {
   }
 });
 
+userRouter.get("/rooms", middleware, async (req, res) => {
+  const userId = String(req.userId);
+
+  try {
+    const rooms = await prismaClient.room.findMany({
+      where: {
+        adminId: userId,
+      },
+    });
+
+    res.json({
+      rooms,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      message: "Server Error",
+    });
+  }
+});
+
 userRouter.get("/chats/:roomId", middleware, async (req, res) => {
   const roomId = Number(req.params.roomId);
   const userId = String(req.userId);

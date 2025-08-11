@@ -1,19 +1,22 @@
-"use client"
-import React, { useState } from "react";
+"use client";
+import React, { useEffect, useState } from "react";
 import { Plus, Users, Calendar, MoreVertical, Edit3 } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { ArrowDoodle } from "../doodleIcons/ArrowDoodle";
 import { WavyLinesDoodle } from "../doodleIcons/WavyLinesDoodle";
 import { ScribbleDoodle } from "../doodleIcons/ScribbleDoodle";
 import { CreateRoomModal } from "../components/CreateRoomModal";
+import axios from "axios";
+import { BACKEND_URL } from "../config";
+import { headers } from "next/headers";
 
 interface Room {
-  id: string;
+  id?: string;
   name: string;
   slug: string;
-  createdAt: string;
-  lastModified: string;
-  collaborators: number;
+  createdAt?: string;
+  lastModified?: string;
+  collaborators?: number;
 }
 
 interface DashboardProps {
@@ -22,48 +25,26 @@ interface DashboardProps {
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [rooms, setRooms] = useState<Room[]>([
-    {
-      id: "1",
-      name: "Project Wireframes",
-      slug: "project-wireframes",
-      createdAt: "2024-01-15",
-      lastModified: "2024-01-20",
-      collaborators: 3,
-    },
-    {
-      id: "2",
-      name: "Team Brainstorm",
-      slug: "team-brainstorm",
-      createdAt: "2024-01-10",
-      lastModified: "2024-01-18",
-      collaborators: 5,
-    },
-    {
-      id: "3",
-      name: "Architecture Diagram",
-      slug: "architecture-diagram",
-      createdAt: "2024-01-08",
-      lastModified: "2024-01-16",
-      collaborators: 2,
-    },
-  ]);
+  const [rooms, setRooms] = useState<Room[]>([]);
 
-  const handleCreateRoom = (name: string, slug: string) => {
-    const newRoom: Room = {
-      id: Date.now().toString(),
-      name,
-      slug,
-      createdAt: new Date().toISOString().split("T")[0],
-      lastModified: new Date().toISOString().split("T")[0],
-      collaborators: 1,
-    };
-    setRooms([newRoom, ...rooms]);
+  useEffect(() => {
+    const response = axios
+      .get(`${BACKEND_URL}/rooms`, {
+        headers: {
+          Authorization: localStorage.getItem("token"),
+        },
+      })
+      .then((response) => setRooms(response.data.rooms));
+      
+  }, []);
+
+  const handleCreateRoom = async () => {
+    // setRooms([rooms]);
     setShowCreateModal(false);
   };
 
   return (
-    <div className="min-h-screen bg-white font-inter relative overflow-hidden">      
+    <div className="min-h-screen bg-white font-inter relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-16 w-24 h-6 opacity-30 transform -rotate-12 text-blue-500">
           <ArrowDoodle />
@@ -76,7 +57,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      
       <header className="border-b-2 border-gray-900 bg-white relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -95,9 +75,7 @@ export default function Dashboard() {
                   John Doe
                 </p>
               </div>
-              <button                
-                className="text-gray-600 hover:text-gray-900 transition-colors font-medium text-sm underline"
-              >
+              <button className="text-gray-600 hover:text-gray-900 transition-colors font-medium text-sm underline">
                 Sign Out
               </button>
             </div>
@@ -105,8 +83,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">        
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <div className="mb-8">
           <h2 className="text-4xl font-bold text-gray-900 mb-2">
             Your Sketch Rooms
@@ -115,7 +92,7 @@ export default function Dashboard() {
             Create and manage your collaborative drawing spaces
           </p>
         </div>
-        
+
         <div className="mb-8">
           <Button
             onClick={() => setShowCreateModal(true)}
@@ -127,16 +104,15 @@ export default function Dashboard() {
             Create New Room
           </Button>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rooms.map((room, index) => (
             <div key={room.id} className="group">
               <div className="bg-white border-2 border-gray-900 p-6 transform transition-all duration-200 hover:translate-x-1 hover:translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-               
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <h3 className="text-xl font-inter font-bold text-gray-900 mb-1">
-                      {room.name}
+                      {room.slug}
                     </h3>
                     <p className="text-sm text-gray-500 font-mono">
                       /{room.slug}
@@ -147,21 +123,20 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-sm text-gray-600">
                     <Users size={16} className="mr-2" />
-                    <span>
+                    {/* <span>
                       {room.collaborators} collaborator
                       {room.collaborators !== 1 ? "s" : ""}
-                    </span>
+                    </span> */}
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Calendar size={16} className="mr-2" />
-                    <span>Modified {room.lastModified}</span>
+                    {/* <span>Modified {room.lastModified}</span> */}
                   </div>
                 </div>
-                
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -174,7 +149,6 @@ export default function Dashboard() {
             </div>
           ))}
 
-          
           {rooms.length === 0 && (
             <div className="col-span-full text-center py-12">
               <div className="bg-gray-50 border-2 border-gray-900 p-8 transform rotate-1 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
@@ -196,7 +170,7 @@ export default function Dashboard() {
           )}
         </div>
       </main>
-      
+
       {showCreateModal && (
         <CreateRoomModal
           onClose={() => setShowCreateModal(false)}
@@ -205,4 +179,4 @@ export default function Dashboard() {
       )}
     </div>
   );
-};
+}
