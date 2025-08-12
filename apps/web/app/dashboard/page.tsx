@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Plus, Users, Calendar, MoreVertical, Edit3 } from "lucide-react";
+import { Plus, Users, Calendar, MoreVertical, Edit3, Hash, Copy, Check } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { ArrowDoodle } from "../doodleIcons/ArrowDoodle";
 import { WavyLinesDoodle } from "../doodleIcons/WavyLinesDoodle";
@@ -8,7 +8,7 @@ import { ScribbleDoodle } from "../doodleIcons/ScribbleDoodle";
 import { CreateRoomModal } from "../components/CreateRoomModal";
 import axios from "axios";
 import { BACKEND_URL } from "../config";
-import { headers } from "next/headers";
+import { useRouter } from "next/navigation";
 
 interface Room {
   id?: string;
@@ -26,7 +26,8 @@ interface DashboardProps {
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([]);
-
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const router = useRouter();
   useEffect(() => {
     const response = axios
       .get(`${BACKEND_URL}/rooms`, {
@@ -41,6 +42,16 @@ export default function Dashboard() {
   const handleCreateRoom = async () => {
     // setRooms([rooms]);
     setShowCreateModal(false);
+  };
+
+  const copySlugToClipboard = async (slug: string) => {
+    try {
+      await navigator.clipboard.writeText(slug);
+      setCopiedSlug(slug);
+      setTimeout(() => setCopiedSlug(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy slug:', err);
+    }
   };
 
   return (
@@ -109,34 +120,65 @@ export default function Dashboard() {
           {rooms.map((room, index) => (
             <div key={room.id} className="group">
               <div className="bg-white border-2 border-gray-900 p-6 transform transition-all duration-200 hover:translate-x-1 hover:translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                {/* Room Header */}
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
-                    <h3 className="text-xl font-inter font-bold text-gray-900 mb-1">
-                      {room.slug}
-                    </h3>
-                    <p className="text-sm text-gray-500 font-mono">
-                      /{room.slug}
-                    </p>
+                    <h3 className="text-xl font-caveat font-bold text-gray-900 mb-1">{room.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <Hash size={14} className="text-gray-400" />
+                      <span className="text-sm text-gray-500 font-mono">{room.slug}</span>
+                      <button
+                        onClick={() => copySlugToClipboard(room.slug)}
+                        className="text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Copy room slug"
+                      >
+                        {copiedSlug === room.slug ? (
+                          <Check size={14} className="text-green-600" />
+
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <button className="text-gray-400 hover:text-gray-600 transition-colors">
                     <MoreVertical size={20} />
                   </button>
                 </div>
 
+                {/* Room Stats */}
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-sm text-gray-600">
                     <Users size={16} className="mr-2" />
-                    {/* <span>
-                      {room.collaborators} collaborator
-                      {room.collaborators !== 1 ? "s" : ""}
-                    </span> */}
+                    <span>{room.collaborators} collaborator{room.collaborators !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Calendar size={16} className="mr-2" />
-                    {/* <span>Modified {room.lastModified}</span> */}
+                    <span>Modified {room.lastModified}</span>
                   </div>
                 </div>
 
+                {/* Share Section */}
+                <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded">
+                  <p className="text-xs text-gray-500 mb-1 font-inter">Share with team:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-white px-2 py-1 border border-gray-300 rounded flex-1 font-mono">
+                      sketchboard.com/room/{room.slug}
+                    </code>
+                    <button
+                      onClick={() => copySlugToClipboard(room.slug)}
+                      className="text-blue-600 hover:text-blue-800 transition-colors"
+                      title="Copy room URL"
+                    >
+                      {copiedSlug === room.slug ? (
+                        <Check size={14} className="text-green-600" />
+                      ) : (
+                        <Copy size={14} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {/* Action Button */}
                 <Button
                   variant="outline"
                   size="sm"
@@ -148,6 +190,7 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+
 
           {rooms.length === 0 && (
             <div className="col-span-full text-center py-12">
