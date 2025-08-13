@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 
 interface CreateRoomModalProps {
   onClose: () => void;
-  onCreateRoom: (name: string, slug: string) => void;
+  onCreateRoom?: (name: string, slug: string) => void;
 }
 
 export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
@@ -94,6 +94,19 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     setIsLoading(false);
   };
 
+  async function joinRoomHandler(){
+    const response = await axios.get(`${BACKEND_URL}/room/${joinSlug}`,{
+      headers:{
+        Authorization:localStorage.getItem('token')
+      }
+    });
+    if(response){
+      
+      setJoinSlug(response.data.room.id);
+      router.push(`canvas/${roomId}`)
+    }
+  }
+
   const isValidSlug = /^[a-z0-9-]+$/.test(roomSlug) && roomSlug.length > 0;
 
   return (
@@ -140,7 +153,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               Join Room
             </button>
           </div>
-          {/* Create Room Tab */}
+        
           {activeTab === "create" && (
             <form onSubmit={handleSubmit} className="space-y-6">
               <Input
@@ -273,7 +286,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                   className="flex-1"
                   isLoading={isLoading}
                   showArrow
-                  onCanPlay={() => {router(`canvas/${roomId}`)}}
+                  onClick={joinRoomHandler}
                 >
                   Join Room
                 </Button>

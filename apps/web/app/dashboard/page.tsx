@@ -32,17 +32,13 @@ export default function Dashboard() {
     const response = axios
       .get(`${BACKEND_URL}/rooms`, {
         headers: {
-          Authorization: localStorage.getItem("token"),
+          authorization: localStorage.getItem("token"),
         },
       })
       .then((response) => setRooms(response.data.rooms));
       
   }, []);
 
-  const handleCreateRoom = async () => {
-    // setRooms([rooms]);
-    setShowCreateModal(false);
-  };
 
   const copySlugToClipboard = async (slug: string) => {
     try {
@@ -112,7 +108,7 @@ export default function Dashboard() {
             className="transform hover:translate-x-1 hover:translate-y-1"
           >
             <Plus size={20} />
-            Create New Room
+            Manage Room
           </Button>
         </div>
 
@@ -183,6 +179,7 @@ export default function Dashboard() {
                   variant="outline"
                   size="sm"
                   className="w-full group-hover:bg-gray-900 group-hover:text-white"
+                  onClick={() => {router.push(`canvas/${room.id}`)}}
                 >
                   <Edit3 size={16} />
                   Open Room
@@ -217,7 +214,7 @@ export default function Dashboard() {
       {showCreateModal && (
         <CreateRoomModal
           onClose={() => setShowCreateModal(false)}
-          onCreateRoom={handleCreateRoom}
+          
         />
       )}
     </div>
