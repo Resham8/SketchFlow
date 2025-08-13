@@ -1,8 +1,10 @@
+"use client"
 import { useEffect, useRef, useState } from "react";
 
 import { Circle, Pencil, Square } from "lucide-react";
 import { Board, Tool } from "../draw/Board";
 import { IconButton } from "./IconButton";
+import TopBar from "./ToolBar";
 
 
 export function Canvas({
@@ -44,49 +46,6 @@ export function Canvas({
         height={window.innerHeight}
       ></canvas>
       <TopBar selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
-    </div>
-  );
-}
-
-function TopBar({
-  selectedTool,
-  setSelectedTool,
-}: {
-  selectedTool: Tool;
-  setSelectedTool: (s: Tool) => void;
-}) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 10,
-        left: 10,
-      }}
-      className="flex justify-center w-full"
-    >
-      <div className="flex gap-2 border border-gray-600 p-3 rounded-lg">
-        <IconButton
-          activated={selectedTool === "pencil"}
-          icon={<Pencil />}
-          onClick={() => {
-            setSelectedTool("pencil");
-          }}
-        />
-        <IconButton
-          activated={selectedTool === "rect"}
-          icon={<Square />}
-          onClick={() => {
-            setSelectedTool("rect");
-          }}
-        />
-        <IconButton
-          activated={selectedTool === "circle"}
-          icon={<Circle />}
-          onClick={() => {
-            setSelectedTool("circle");
-          }}
-        />
-      </div>
     </div>
   );
 }
