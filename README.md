@@ -9,3 +9,6 @@ A real-time collaborative whiteboard app inspired by Excalidraw, for drawing, br
 + Modern Frontend – Built with Next.js for a fast, responsive, and SEO-friendly UI.
 + Modular Monorepo – Managed with Turborepo for clean separation of concerns.
 
+### 🔮 Future Plans
+- 🎨 More drawing tools & shapes
+- 🖼️ Image & file uploads
