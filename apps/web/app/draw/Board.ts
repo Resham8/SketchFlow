@@ -7,19 +7,22 @@ type Shape =
       y: number;
       width: number;
       height: number;
+      selected?: boolean;
     }
   | {
       type: "circle";
       centerX: number;
       centerY: number;
       radius: number;
+      selected?: boolean;
     }
   | {
       type: "pencil";
       points: { x: number; y: number }[];
+      selected?: boolean;
     };
 
-export type Tool = "circle" | "rect" | "pencil";
+export type Tool = "circle" | "rect" | "pencil" | "eraser" | "select";
 
 export class Board {
   private canvas: HTMLCanvasElement;
@@ -27,6 +30,14 @@ export class Board {
   private existingShapes: Shape[];
   private roomId: string;
   private clicked: boolean;
+  private selectedShape: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    color?: string;
+  } | null;
+  private isDraggedShape: boolean;
   private startX = 0;
   private startY = 0;
   private lastX = 0;
@@ -42,6 +53,8 @@ export class Board {
     this.existingShapes = [];
     this.roomId = roomId;
     this.clicked = false;
+    this.isDraggedShape = false;
+    this.selectedShape = null;
     this.socket = socket;
     this.init();
     this.initHandlers();
@@ -78,15 +91,73 @@ export class Board {
     };
   }
 
+  private hitTest(shape: Shape, x: number, y: number): boolean {
+    if (shape.type === "rect") {
+      return (
+        x >= shape.x &&
+        x <= shape.x + shape.width &&
+        y >= shape.y &&
+        y <= shape.y + shape.height
+      );
+    }
+    if (shape.type === "circle") {
+      const dx = x - shape.centerX;
+      const dy = y - shape.centerY;
+      return Math.sqrt(dx * dx + dy * dy) <= shape.radius;
+    }
+    if (shape.type === "pencil") {
+      return shape.points.some((p) => Math.hypot(x - p.x, y - p.y) <= 5);
+    }
+    return false;
+  }
+
   mouseDownHandler = (e: MouseEvent) => {
     this.clicked = true;
     this.startX = e.offsetX;
     this.startY = e.offsetY;
     this.currentPath = [{ x: e.offsetX, y: e.offsetY }];
+
+    if (this.selectedTool !== "select") {
+      this.existingShapes.forEach((s) => (s.selected = false));
+      this.selectedShape = null;
+    }
+
+    if (this.selectedTool === "select") {
+      for (let i = this.existingShapes.length - 1; i >= 0; i--) {
+        const shape = this.existingShapes[i];
+        if (this.hitTest(shape, this.startX, this.startY)) {
+          this.existingShapes.forEach((s) => (s.selected = false));
+          if (shape) {
+            shape.selected = true;
+          }
+          this.selectedShape = {
+            x: this.startX,
+            y: this.startY,
+            w: shape.type === "rect" ? shape.width : 0,
+            h: shape.type === "rect" ? shape.height : 0,
+            color: "yellow",
+          };
+          this.isDraggedShape = true;
+          this.lastX = this.startX;
+          this.lastY = this.startY;
+          this.clearCanvas();
+          return;
+        }
+      }
+      this.existingShapes.forEach((s) => (s.selected = false));
+      this.selectedShape = null;
+      this.clearCanvas();
+      return;
+    }
   };
 
   mouseUpHandler = (e: MouseEvent) => {
     this.clicked = false;
+
+    if (this.selectedTool === "select") {
+      this.isDraggedShape = false;
+      return;
+    }
     const width = e.clientX - this.startX;
     const height = e.clientY - this.startY;
     const selectedTool = this.selectedTool;
@@ -98,6 +169,7 @@ export class Board {
         y: this.startY,
         height,
         width,
+        selected: true,
       };
       this.existingShapes.push(shape);
     } else if (selectedTool === "circle") {
@@ -110,15 +182,17 @@ export class Board {
         radius,
         centerX,
         centerY,
+        selected: true,
       };
       this.existingShapes.push(shape);
     } else if (selectedTool === "pencil") {
       shape = {
         type: "pencil",
         points: this.currentPath,
+        selected: true,
       };
       this.existingShapes.push(shape);
-      this.currentPath = []; // reset path
+      this.currentPath = [];
     }
 
     if (!shape) {
@@ -137,6 +211,39 @@ export class Board {
   };
 
   mouseMoveHandler = (e: MouseEvent) => {
+    const mouseX = e.offsetX;
+    const mouseY = e.offsetY;
+
+    if (
+      this.selectedTool === "select" &&
+      this.isDraggedShape &&
+      this.selectedShape
+    ) {
+      const dx = mouseX - this.lastX;
+      const dy = mouseY - this.lastY;
+
+      const shape = this.existingShapes.find((s) => s.selected);
+      if (shape) {
+        if (shape.type === "rect") {
+          shape.x += dx;
+          shape.y += dy;
+        } else if (shape.type === "circle") {
+          shape.centerX += dx;
+          shape.centerY += dy;
+        } else if (shape.type === "pencil") {
+          shape.points = shape.points.map((p) => ({
+            x: p.x + dx,
+            y: p.y + dy,
+          }));
+        }
+      }
+
+      this.lastX = mouseX;
+      this.lastY = mouseY;
+      this.clearCanvas();
+      return;
+    }
+
     if (this.clicked) {
       const width = e.clientX - this.startX;
       const height = e.clientY - this.startY;
@@ -160,7 +267,6 @@ export class Board {
 
         this.clearCanvas();
 
-     
         this.ctx.beginPath();
         this.ctx.moveTo(this.currentPath[0].x, this.currentPath[0].y);
         for (let i = 1; i < this.currentPath.length; i++) {
@@ -186,11 +292,12 @@ export class Board {
     this.ctx.fillStyle = "#121212";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    this.existingShapes.map((shape) => {
+    this.existingShapes.forEach((shape) => {
       if (!shape) return;
 
+      // Draw the shape itself
+      this.ctx.strokeStyle = "rgba(255,255,255)";
       if (shape.type === "rect") {
-        this.ctx.strokeStyle = "rgba(255,255,255)";
         this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
       } else if (shape.type === "circle") {
         const { centerX, centerY, radius } = shape;
@@ -201,7 +308,6 @@ export class Board {
       } else if (shape.type === "pencil") {
         const points = shape.points;
         if (points.length < 2) return;
-
         this.ctx.beginPath();
         this.ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) {
@@ -209,6 +315,42 @@ export class Board {
         }
         this.ctx.stroke();
         this.ctx.closePath();
+      }
+
+      if (this.selectedTool === "select" && shape.selected) {
+        this.ctx.strokeStyle = "#1E90FF";
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([5, 5]);
+
+        let minX: number, minY: number, maxX: number, maxY: number;
+        if (shape.type === "rect") {
+          minX = shape.x;
+          minY = shape.y;
+          maxX = shape.x + shape.width;
+          maxY = shape.y + shape.height;
+        } else if (shape.type === "circle") {
+          minX = shape.centerX - shape.radius;
+          minY = shape.centerY - shape.radius;
+          maxX = shape.centerX + shape.radius;
+          maxY = shape.centerY + shape.radius;
+        } else if (shape.type === "pencil") {
+          if (shape.points.length === 0) return;
+          minX = Math.min(...shape.points.map((p) => p.x));
+          minY = Math.min(...shape.points.map((p) => p.y));
+          maxX = Math.max(...shape.points.map((p) => p.x));
+          maxY = Math.max(...shape.points.map((p) => p.y));
+        } else {
+          return;
+        }
+
+        const padding = 4;
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+
+        this.ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+        this.ctx.setLineDash([]);
       }
     });
   }
