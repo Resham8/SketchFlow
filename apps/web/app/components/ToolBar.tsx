@@ -1,4 +1,4 @@
-import { Circle, Pencil, Square } from "lucide-react";
+import { Circle, Eraser, MousePointer, Pencil, Square } from "lucide-react";
 import { IconButton } from "./IconButton";
 import { Tool } from "../draw/Board";
 
@@ -19,6 +19,7 @@ export default function TopBar({
       className="flex justify-center w-full"
     >
       <div className="flex gap-2  bg-[#232329] p-2 rounded-lg">
+        <IconButton activated={selectedTool==="select"} icon={<MousePointer />} onClick={()=>{setSelectedTool("select")}} className="cursor-move"/>
         <IconButton
           activated={selectedTool === "pencil"}
           icon={<Pencil />}
@@ -40,6 +41,7 @@ export default function TopBar({
             setSelectedTool("circle");
           }}
         />
+        <IconButton activated={selectedTool === 'eraser'} icon={<Eraser/>} onClick={()=>{setSelectedTool("eraser")}}/>
       </div>
     </div>
   );

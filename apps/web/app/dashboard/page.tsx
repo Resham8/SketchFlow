@@ -154,7 +154,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Share Section */}
+                
                 <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded">
                   <p className="text-xs text-gray-500 mb-1 font-inter">Share with team:</p>
                   <div className="flex items-center gap-2">
