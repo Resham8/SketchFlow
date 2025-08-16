@@ -55,10 +55,10 @@ wss.on("connection", function connection(ws, request) {
   ws.on("message", async function message(data) {
     let parseData;
 
-    if(typeof data !== "string"){
+    if (typeof data !== "string") {
       parseData = JSON.parse(data.toString());
     } else {
-      parseData = JSON.parse(data)
+      parseData = JSON.parse(data);
     }
 
     if (parseData.type === "join_room") {
@@ -78,10 +78,10 @@ wss.on("connection", function connection(ws, request) {
     if (parseData.type === "chat") {
       const roomId = Number(parseData.roomId);
       const shape = parseData.shape;
-
-      await prismaClient.element.create({
+const shapeString = JSON.stringify(shape);
+      const response = await prismaClient.element.create({
         data: {
-          shape,
+          shape:shapeString,
           user: {
             connect: {
               id: userId,
@@ -95,17 +95,44 @@ wss.on("connection", function connection(ws, request) {
         },
       });
 
+      const shapeWithId = { ...shape, id: response.id };
+
       users.forEach((user) => {
         if (user.rooms.includes(roomId)) {
           user.ws.send(
             JSON.stringify({
               type: "chat",
-              shape: shape,
+              shape: shapeWithId,
+              shapeId: response.id,
               roomId,
             })
           );
         }
       });
+    }
+
+    if (parseData.type === "delete") {
+      const roomId = Number(parseData.roomId);
+      const shapeId = Number(parseData.shapeId);
+
+      try {
+        await prismaClient.element.delete({
+          where: {
+            id: shapeId,
+            roomId: roomId,
+          },
+        });
+
+        users.forEach((user) => {
+          if (user.rooms.includes(roomId)) {
+            user.ws.send(
+              JSON.stringify({ type: "delete", shapeId: parseData.shapeId })
+            );
+          }
+        });
+      } catch (error) {
+        console.error("Error deleting shape:", error);
+      }
     }
   });
 });

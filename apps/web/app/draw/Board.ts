@@ -2,24 +2,27 @@ import { getExistingShapes } from "./http";
 
 type Shape =
   | {
+      id: number;
       type: "rect";
       x: number;
       y: number;
       width: number;
       height: number;
-      selected?: boolean;
+      selected: boolean;
     }
   | {
+      id: number;
       type: "circle";
       centerX: number;
       centerY: number;
       radius: number;
-      selected?: boolean;
+      selected: boolean;
     }
   | {
+      id: number;
       type: "pencil";
       points: { x: number; y: number }[];
-      selected?: boolean;
+      selected: boolean;
     };
 
 export type Tool = "circle" | "rect" | "pencil" | "eraser" | "select";
@@ -81,11 +84,17 @@ export class Board {
   initHandlers() {
     this.socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
-
+      console.log("Received message:", JSON.stringify(message));
       if (message.type == "chat") {
-        console.log(message);
-        const parsedShape = JSON.parse(message.shape);
-        this.existingShapes.push(parsedShape.shape);
+        const shape = message.shape; // Access shape directly
+        this.existingShapes.push(shape);
+        console.log("Added shape:", shape);
+        this.clearCanvas();
+      } else if (message.type === "delete") {
+        this.existingShapes = this.existingShapes.filter(
+          (s) => s.id !== message.shapeId
+        );
+        console.log("After delete, shapes:", this.existingShapes);
         this.clearCanvas();
       }
     };
@@ -122,19 +131,41 @@ export class Board {
       this.selectedShape = null;
     }
 
+    if (this.selectedTool === "eraser") {
+      for (let i = this.existingShapes.length - 1; i >= 0; i--) {
+        const shape = this.existingShapes[i];
+        if (this.hitTest(shape, this.startX, this.startY)) {
+          if (shape.id == null) {
+            console.warn("Cannot delete shape without an ID:", shape);
+            continue; 
+          }
+          // const shapeId = shape?.id;
+          this.existingShapes.splice(i, 1);
+          this.clearCanvas();
+          this.socket.send(
+            JSON.stringify({
+              roomId: this.roomId,
+              type: "delete",
+              shapeId: shape.id,
+            })
+          );
+          break;
+        }
+      }
+      return;
+    }
+
     if (this.selectedTool === "select") {
       for (let i = this.existingShapes.length - 1; i >= 0; i--) {
         const shape = this.existingShapes[i];
         if (this.hitTest(shape, this.startX, this.startY)) {
           this.existingShapes.forEach((s) => (s.selected = false));
-          if (shape) {
-            shape.selected = true;
-          }
+          shape.selected = true;
           this.selectedShape = {
             x: this.startX,
             y: this.startY,
-            w: shape.type === "rect" ? shape.width : 0,
-            h: shape.type === "rect" ? shape.height : 0,
+            w: shape?.type === "rect" ? shape.width : 0,
+            h: shape?.type === "rect" ? shape.height : 0,
             color: "yellow",
           };
           this.isDraggedShape = true;
@@ -158,8 +189,8 @@ export class Board {
       this.isDraggedShape = false;
       return;
     }
-    const width = e.clientX - this.startX;
-    const height = e.clientY - this.startY;
+    const width = e.offsetX - this.startX;
+    const height = e.offsetY - this.startY;
     const selectedTool = this.selectedTool;
     let shape: Shape | null = null;
     if (selectedTool === "rect") {
@@ -171,7 +202,7 @@ export class Board {
         width,
         selected: true,
       };
-      this.existingShapes.push(shape);
+      // this.existingShapes.push(shape);
     } else if (selectedTool === "circle") {
       const centerX = this.startX + width / 2;
       const centerY = this.startY + height / 2;
@@ -184,14 +215,14 @@ export class Board {
         centerY,
         selected: true,
       };
-      this.existingShapes.push(shape);
+      // this.existingShapes.push(shape);
     } else if (selectedTool === "pencil") {
       shape = {
         type: "pencil",
         points: this.currentPath,
         selected: true,
       };
-      this.existingShapes.push(shape);
+      // this.existingShapes.push(shape);
       this.currentPath = [];
     }
 
@@ -203,11 +234,10 @@ export class Board {
       JSON.stringify({
         roomId: this.roomId,
         type: "chat",
-        shape: JSON.stringify({
-          shape,
-        }),
+        shape,
       })
     );
+    this.clearCanvas();
   };
 
   mouseMoveHandler = (e: MouseEvent) => {
@@ -245,8 +275,8 @@ export class Board {
     }
 
     if (this.clicked) {
-      const width = e.clientX - this.startX;
-      const height = e.clientY - this.startY;
+      const width = e.offsetX - this.startX;
+      const height = e.offsetY - this.startY;
       this.clearCanvas();
       this.ctx.strokeStyle = "rgba(255,255,255)";
       const selectedTool = this.selectedTool;
@@ -268,7 +298,7 @@ export class Board {
         this.clearCanvas();
 
         this.ctx.beginPath();
-        this.ctx.moveTo(this.currentPath[0].x, this.currentPath[0].y);
+        this.ctx.moveTo("this.currentPath[0].x, this.currentPath[0].y");
         for (let i = 1; i < this.currentPath.length; i++) {
           const point = this.currentPath[i];
           this.ctx.lineTo(point.x, point.y);
@@ -291,11 +321,10 @@ export class Board {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.fillStyle = "#121212";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
+    console.log(JSON.stringify(this.existingShapes) + "existing shapes arr");
     this.existingShapes.forEach((shape) => {
       if (!shape) return;
 
-      // Draw the shape itself
       this.ctx.strokeStyle = "rgba(255,255,255)";
       if (shape.type === "rect") {
         this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
