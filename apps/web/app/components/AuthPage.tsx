@@ -1,6 +1,5 @@
 "use client";
 
-
 import { Button } from "@repo/ui/button";
 import axios from "axios";
 import { ArrowRight, Check, Eye, EyeOff, PenTool } from "lucide-react";
@@ -31,7 +30,7 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
       alert("Passwords do not match!");
       return;
     }
-    
+
     const response = await axios.post(
       `${BACKEND_URL}/${isSignin ? "signin" : "signup"}`,
       {
@@ -41,15 +40,15 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
       }
     );
     if (response) {
-      alert(JSON.stringify(response.data));      
+      alert(JSON.stringify(response.data.message));
     }
     if (isSignin) {
       const token = response.data.token;
       localStorage.setItem("token", token);
-      
-      router.push('dashboard')
+
+      router.push("dashboard");
     } else {
-        router.push('/signin')
+      router.push("/signin");
     }
   };
 
@@ -64,7 +63,6 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
 
   return (
     <div className="min-h-screen bg-white font-inter flex items-center justify-center p-4 relative overflow-hidden">
-      
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-16 left-12 w-28 h-8 opacity-60 transform -rotate-12">
           <ArrowDoodle />
@@ -76,7 +74,7 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
           <ScribbleDoodle className="w-28" />
         </div>
         <div className="absolute top-1/2 right-8 w-12 h-32 opacity-50 transform rotate-6">
-          <ZigzagDoodle />          
+          <ZigzagDoodle />
         </div>
       </div>
 
@@ -228,11 +226,7 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
                 )}
               </div>
 
-              <Button
-                type="submit"
-                isLoading={isLoading}
-                className="w-full"                
-              >
+              <Button type="submit" isLoading={isLoading} className="w-full">
                 {isSignin ? "Sign In" : "Create Account"}
               </Button>
             </form>
@@ -246,9 +240,9 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
             <div className="text-center">
               <p className="text-gray-600 font-light">
                 Already have an account?{" "}
-                <Link href={"/signin"}>
+                <Link href={`${isSignin ? "/signup" : "/signin"}`}>
                   <button className="text-blue-600 hover:text-blue-800 font-medium underline">
-                    Sign in here
+                    {`${isSignin ? "Sign Up" : "Sign In"} here`}
                   </button>
                 </Link>
               </p>
