@@ -231,8 +231,7 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
               <Button
                 type="submit"
                 isLoading={isLoading}
-                // fullWidth
-                // icon={<ArrowRight size={20} />}
+                className="w-full"                
               >
                 {isSignin ? "Sign In" : "Create Account"}
               </Button>
