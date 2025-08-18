@@ -1,10 +1,8 @@
 "use client"
 import { useEffect, useRef, useState } from "react";
-
-import { Circle, Pencil, Square } from "lucide-react";
 import { Board, Tool } from "../draw/Board";
-import { IconButton } from "./IconButton";
 import TopBar from "./ToolBar";
+import MainMenu from "./MainMenu";
 
 
 export function Canvas({
@@ -17,6 +15,7 @@ export function Canvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [board, setBoard] = useState<Board>();
   const [selectedTool, setSelectedTool] = useState<Tool>("circle");
+  const [selectedBgColor, setSelectedBgColor] = useState();
 
   useEffect(() => {
     board?.setTool(selectedTool);
@@ -46,6 +45,7 @@ export function Canvas({
         height={window.innerHeight}
       ></canvas>
       <TopBar selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
+      <MainMenu/>
     </div>
   );
 }

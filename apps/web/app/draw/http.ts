@@ -13,9 +13,10 @@ export async function getExistingShapes(roomId: string) {
   const shapes = chats.map((chat: any) => {
     try {
       const parsed = JSON.parse(chat.shape);
-      return parsed.shape;
+      const shape = { ...parsed, id: chat.id, selected: false };
+      return shape;
     } catch (err) {
-      console.error("Invalid JSON in message:", chat.shape);
+      console.error("Invalid JSON in message:", chat.shape, err);
       return null;
     }
   });

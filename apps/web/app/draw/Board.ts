@@ -47,6 +47,7 @@ export class Board {
   private lastY = 0;
   private selectedTool: Tool = "circle";
   private currentPath: { x: number; y: number }[] = [];
+  private selectedBgColor: string;
 
   socket: WebSocket;
 
@@ -58,6 +59,7 @@ export class Board {
     this.clicked = false;
     this.isDraggedShape = false;
     this.selectedShape = null;
+    this.selectedBgColor = "";
     this.socket = socket;
     this.init();
     this.initHandlers();
@@ -76,6 +78,10 @@ export class Board {
     this.selectedTool = tool;
   }
 
+  setBackgroundColor(color:string){
+    this.selectedBgColor = color;
+  }
+
   async init() {
     this.existingShapes = await getExistingShapes(this.roomId);
     this.clearCanvas();
@@ -86,7 +92,7 @@ export class Board {
       const message = JSON.parse(event.data);
       console.log("Received message:", JSON.stringify(message));
       if (message.type == "chat") {
-        const shape = message.shape; // Access shape directly
+        const shape = message.shape;
         this.existingShapes.push(shape);
         console.log("Added shape:", shape);
         this.clearCanvas();
