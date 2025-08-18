@@ -178,7 +178,7 @@ export default function Dashboard() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full group-hover:bg-gray-900 group-hover:text-white"
+                  className="w-full group-hover:bg-gray-900 group-hover:text-white cursor-pointer"
                   onClick={() => {router.push(`canvas/${room.id}`)}}
                 >
                   <Edit3 size={16} />
