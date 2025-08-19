@@ -9,6 +9,11 @@ type Shape =
       width: number;
       height: number;
       selected: boolean;
+      strokeColor: string;
+      backgroundColor: string;
+      fillStyle: "hachure" | "cross" | "solid" | null;
+      strokeWidth: number;
+      strokeStyle: "solid" | "dashed" | "dotted" | null;
     }
   | {
       id: number;
@@ -17,15 +22,27 @@ type Shape =
       centerY: number;
       radius: number;
       selected: boolean;
+      strokeColor: string;
+      backgroundColor: string;
+      fillStyle: "hachure" | "cross" | "solid" | null;
+      strokeWidth: number;
+      strokeStyle: "solid" | "dashed" | "dotted" | null;
     }
   | {
       id: number;
       type: "pencil";
       points: { x: number; y: number }[];
       selected: boolean;
+      strokeColor: string;
+      strokeWidth: number;
+      strokeStyle: "solid" | "dashed" | "dotted" | null;
     };
 
 export type Tool = "circle" | "rect" | "pencil" | "eraser" | "select";
+type FilledShape = Shape & {
+  fillStyle: "hachure" | "cross" | "solid" | null;
+  backgroundColor: string;
+};
 
 export class Board {
   private canvas: HTMLCanvasElement;
@@ -47,8 +64,14 @@ export class Board {
   private lastY = 0;
   private selectedTool: Tool = "circle";
   private currentPath: { x: number; y: number }[] = [];
-  private selectedBgColor: string;
-
+  private strokeColor: string;
+  private backgroundColor: string;
+  private fillStyle: "hachure" | "cross" | "solid" | null;
+  private strokeWidth: number;
+  private strokeStyle: "solid" | "dashed" | "dotted" | null;
+  private isPanning: boolean = false;
+  private panX: number = 0;
+  private panY: number = 0;
   socket: WebSocket;
 
   constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
@@ -59,7 +82,11 @@ export class Board {
     this.clicked = false;
     this.isDraggedShape = false;
     this.selectedShape = null;
-    this.selectedBgColor = "";
+    this.strokeColor = "#e4e4e4";
+    this.backgroundColor = "url(/transparent.png)";
+    this.fillStyle = "hachure";
+    this.strokeWidth = 1.25;
+    this.strokeStyle = "solid";
     this.socket = socket;
     this.init();
     this.initHandlers();
@@ -72,19 +99,56 @@ export class Board {
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
 
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
+    document.removeEventListener("keydown", this.keyDownHandler);
+    document.removeEventListener("keyup", this.keyUpHandler);
+    this.canvas.removeEventListener("wheel", this.wheelHandler);
   }
 
   setTool(tool: Tool) {
     this.selectedTool = tool;
+    this.isPanning = tool === "select" ? this.isPanning : false;
+    this.canvas.style.cursor = this.isPanning ? "grab" : "default";
   }
 
-  setBackgroundColor(color:string){
-    this.selectedBgColor = color;
+  setDrawingStyles(styles: {
+    strokeColor: string;
+    backgroundColor: string;
+    fillStyle: "hachure" | "cross" | "solid" | null;
+    strokeWidth: "thin" | "medium" | "thick" | null;
+    strokeStyle: "solid" | "dashed" | "dotted" | null;
+  }) {
+    this.strokeColor = styles.strokeColor;
+    this.backgroundColor = styles.backgroundColor;
+    this.fillStyle = styles.fillStyle;
+    const widths = { thin: 1.25, medium: 2.5, thick: 3.75 };
+    this.strokeWidth = styles.strokeWidth ? widths[styles.strokeWidth] : 1.25;
+    this.strokeStyle = styles.strokeStyle;
   }
 
   async init() {
-    this.existingShapes = await getExistingShapes(this.roomId);
-    this.clearCanvas();
+    try {
+      const shapes = await getExistingShapes(this.roomId);
+      this.existingShapes = shapes.map((shape) => ({
+        ...shape,
+        selected: false,
+        strokeColor: shape.strokeColor || this.strokeColor,
+        backgroundColor:
+          shape.type !== "pencil"
+            ? shape.backgroundColor || this.backgroundColor
+            : undefined,
+        fillStyle:
+          shape.type !== "pencil"
+            ? shape.fillStyle || this.fillStyle
+            : undefined,
+        strokeWidth: shape.strokeWidth || this.strokeWidth,
+        strokeStyle: shape.strokeStyle || this.strokeStyle,
+      })) as Shape[];
+      this.clearCanvas();
+    } catch (error) {
+      console.error("Failed to fetch shapes:", error);
+      this.existingShapes = [];
+      this.clearCanvas();
+    }
   }
 
   initHandlers() {
@@ -92,7 +156,21 @@ export class Board {
       const message = JSON.parse(event.data);
       console.log("Received message:", JSON.stringify(message));
       if (message.type == "chat") {
-        const shape = message.shape;
+        const shape = {
+          ...message.shape,
+          selected: false,
+          strokeColor: message.shape.strokeColor || this.strokeColor,
+          backgroundColor:
+            message.shape.type !== "pencil"
+              ? message.shape.backgroundColor || this.backgroundColor
+              : undefined,
+          fillStyle:
+            message.shape.type !== "pencil"
+              ? message.shape.fillStyle || this.fillStyle
+              : undefined,
+          strokeWidth: message.shape.strokeWidth || this.strokeWidth,
+          strokeStyle: message.shape.strokeStyle || this.strokeStyle,
+        };
         this.existingShapes.push(shape);
         console.log("Added shape:", shape);
         this.clearCanvas();
@@ -128,8 +206,18 @@ export class Board {
 
   mouseDownHandler = (e: MouseEvent) => {
     this.clicked = true;
-    this.startX = e.offsetX;
-    this.startY = e.offsetY;
+    const world = this.toWorldCoordinates(e.offsetX, e.offsetY);
+    this.startX = world.x;
+  this.startY = world.y;
+    if (this.isPanning || e.button === 1) {
+      if (e.button === 1) {
+        this.isPanning = true;
+        this.canvas.style.cursor = "grabbing";
+      }
+      this.lastX = e.offsetX;
+      this.lastY = e.offsetY;
+      return;
+    }
     this.currentPath = [{ x: e.offsetX, y: e.offsetY }];
 
     if (this.selectedTool !== "select") {
@@ -143,7 +231,7 @@ export class Board {
         if (this.hitTest(shape, this.startX, this.startY)) {
           if (shape.id == null) {
             console.warn("Cannot delete shape without an ID:", shape);
-            continue; 
+            continue;
           }
           // const shapeId = shape?.id;
           this.existingShapes.splice(i, 1);
@@ -190,13 +278,16 @@ export class Board {
 
   mouseUpHandler = (e: MouseEvent) => {
     this.clicked = false;
+    this.canvas.style.cursor = this.isPanning ? "grab" : "default";
+    this.isPanning = e.button === 1 ? false : this.isPanning;
 
-    if (this.selectedTool === "select") {
+    if (this.isPanning || this.selectedTool === "select") {
       this.isDraggedShape = false;
       return;
     }
-    const width = e.offsetX - this.startX;
-    const height = e.offsetY - this.startY;
+    const world = this.toWorldCoordinates(e.offsetX, e.offsetY);
+    const width = world.x - this.startX;
+    const height = world.y - this.startY;
     const selectedTool = this.selectedTool;
     let shape: Shape | null = null;
     if (selectedTool === "rect") {
@@ -206,7 +297,12 @@ export class Board {
         y: this.startY,
         height,
         width,
-        selected: true,
+        selected: false,
+        strokeColor: this.strokeColor,
+        backgroundColor: this.backgroundColor,
+        fillStyle: this.fillStyle,
+        strokeWidth: this.strokeWidth,
+        strokeStyle: this.strokeStyle,
       };
       // this.existingShapes.push(shape);
     } else if (selectedTool === "circle") {
@@ -219,14 +315,22 @@ export class Board {
         radius,
         centerX,
         centerY,
-        selected: true,
+        selected: false,
+        strokeColor: this.strokeColor,
+        backgroundColor: this.backgroundColor,
+        fillStyle: this.fillStyle,
+        strokeWidth: this.strokeWidth,
+        strokeStyle: this.strokeStyle,
       };
       // this.existingShapes.push(shape);
     } else if (selectedTool === "pencil") {
       shape = {
         type: "pencil",
         points: this.currentPath,
-        selected: true,
+        selected: false,
+        strokeColor: this.strokeColor,
+        strokeWidth: this.strokeWidth,
+        strokeStyle: this.strokeStyle,
       };
       // this.existingShapes.push(shape);
       this.currentPath = [];
@@ -249,6 +353,19 @@ export class Board {
   mouseMoveHandler = (e: MouseEvent) => {
     const mouseX = e.offsetX;
     const mouseY = e.offsetY;
+    const world = this.toWorldCoordinates(mouseX, mouseY);
+
+    if ((this.isPanning || e.buttons === 4) && this.clicked) {
+      const dx = mouseX - this.lastX;
+      const dy = mouseY - this.lastY;
+      this.panX += dx;
+      this.panY += dy;
+      this.lastX = mouseX;
+      this.lastY = mouseY;
+      this.canvas.style.cursor = "grabbing";
+      this.clearCanvas();
+      return;
+    }
 
     if (
       this.selectedTool === "select" &&
@@ -284,9 +401,28 @@ export class Board {
       const width = e.offsetX - this.startX;
       const height = e.offsetY - this.startY;
       this.clearCanvas();
-      this.ctx.strokeStyle = "rgba(255,255,255)";
+      this.ctx.strokeStyle = this.strokeColor;
+      this.ctx.lineWidth = this.strokeWidth;
+      if (this.strokeStyle === "dashed") {
+        this.ctx.setLineDash([5, 5]);
+      } else if (this.strokeStyle === "dotted") {
+        this.ctx.setLineDash([2, 5]);
+      } else {
+        this.ctx.setLineDash([]);
+      }
       const selectedTool = this.selectedTool;
       if (selectedTool === "rect") {
+        if (
+          this.fillStyle &&
+          this.backgroundColor !== "url(/transparent.png)"
+        ) {
+          this.applyFill({
+            type: "rect",
+            fillStyle: this.fillStyle,
+            backgroundColor: this.backgroundColor,
+          } as FilledShape);
+          this.ctx.fillRect(this.startX, this.startY, width, height);
+        }
         this.ctx.strokeRect(this.startX, this.startY, width, height);
       } else if (selectedTool === "circle") {
         const centerX = this.startX + width / 2;
@@ -294,6 +430,17 @@ export class Board {
         const radius = Math.max(Math.abs(width), Math.abs(height)) / 2;
         this.ctx.beginPath();
         this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        if (
+          this.fillStyle &&
+          this.backgroundColor !== "url(/transparent.png)"
+        ) {
+          this.applyFill({
+            type: "circle",
+            fillStyle: this.fillStyle,
+            backgroundColor: this.backgroundColor,
+          } as FilledShape);
+          this.ctx.fill();
+        }
         this.ctx.stroke();
         this.ctx.closePath();
       } else if (selectedTool === "pencil") {
@@ -315,29 +462,160 @@ export class Board {
     }
   };
 
+  wheelHandler = (e: WheelEvent) => {
+    if (e.buttons === 4) {
+      this.isPanning = true;
+      this.canvas.style.cursor = "grab";
+    }
+  };
+
+  keyDownHandler = (e: KeyboardEvent) => {
+    if (e.code === "Space" && !this.isPanning) {
+      this.isPanning = true;
+      this.canvas.style.cursor = "grab";
+    }
+  };
+
+  keyUpHandler = (e: KeyboardEvent) => {
+    if (e.code === "Space") {
+      this.isPanning = false;
+      this.canvas.style.cursor = "default";
+    }
+  };
+
+  private toWorldCoordinates(x: number, y: number): { x: number; y: number } {
+    return {
+      x: x - this.panX,
+      y: y - this.panY,
+    };
+  }
+
   initMouseHandlers() {
     this.canvas.addEventListener("mousedown", this.mouseDownHandler);
 
     this.canvas.addEventListener("mouseup", this.mouseUpHandler);
 
     this.canvas.addEventListener("mousemove", this.mouseMoveHandler);
+    this.canvas.addEventListener("wheel", this.wheelHandler);
+  }
+
+  initKeyboardHandlers() {
+    document.addEventListener("keydown", this.keyDownHandler);
+    document.addEventListener("keyup", this.keyUpHandler);
+  }
+
+  private isShapeInViewport(shape: Shape): boolean {
+    const buffer = 50;
+    const viewport = {
+      minX: -this.panX - buffer,
+      minY: -this.panY - buffer,
+      maxX: -this.panX + this.canvas.width + buffer,
+      maxY: -this.panY + this.canvas.height + buffer,
+    };
+    if (shape.type === "rect") {
+      return (
+        shape.x + shape.width >= viewport.minX &&
+        shape.x <= viewport.maxX &&
+        shape.y + shape.height >= viewport.minY &&
+        shape.y <= viewport.maxY
+      );
+    } else if (shape.type === "circle") {
+      return (
+        shape.centerX - shape.radius <= viewport.maxX &&
+        shape.centerX + shape.radius >= viewport.minX &&
+        shape.centerY - shape.radius <= viewport.maxY &&
+        shape.centerY + shape.radius >= viewport.minY
+      );
+    } else if (shape.type === "pencil") {
+      return shape.points.some(
+        (p) =>
+          p.x >= viewport.minX &&
+          p.x <= viewport.maxX &&
+          p.y >= viewport.minY &&
+          p.y <= viewport.maxY
+      );
+    }
+    return false;
+  }
+
+  private applyFill(shape: FilledShape) {
+    this.ctx.fillStyle = shape.backgroundColor;
+    if (shape.fillStyle === "hachure") {
+      this.ctx.fillStyle = this.createHachurePattern(shape.backgroundColor);
+    } else if (shape.fillStyle === "cross") {
+      this.ctx.fillStyle = this.createCrossHatchPattern(shape.backgroundColor);
+    }
+  }
+
+  private createHachurePattern(color: string): CanvasPattern {
+    const patternCanvas = document.createElement("canvas");
+    patternCanvas.width = 8;
+    patternCanvas.height = 8;
+    const pctx = patternCanvas.getContext("2d")!;
+    pctx.strokeStyle = color;
+    pctx.lineWidth = 1;
+    pctx.beginPath();
+    pctx.moveTo(0, 8);
+    pctx.lineTo(8, 0);
+    pctx.stroke();
+    return this.ctx.createPattern(patternCanvas, "repeat")!;
+  }
+
+  private createCrossHatchPattern(color: string): CanvasPattern {
+    const patternCanvas = document.createElement("canvas");
+    patternCanvas.width = 8;
+    patternCanvas.height = 8;
+    const pctx = patternCanvas.getContext("2d")!;
+    pctx.strokeStyle = color;
+    pctx.lineWidth = 1;
+    pctx.beginPath();
+    pctx.moveTo(0, 8);
+    pctx.lineTo(8, 0);
+    pctx.moveTo(0, 0);
+    pctx.lineTo(8, 8);
+    pctx.stroke();
+    return this.ctx.createPattern(patternCanvas, "repeat")!;
   }
 
   clearCanvas() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.fillStyle = "#121212";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    console.log(JSON.stringify(this.existingShapes) + "existing shapes arr");
+    this.ctx.translate(this.panX, this.panY);
+    // console.log(JSON.stringify(this.existingShapes) + "existing shapes arr");
     this.existingShapes.forEach((shape) => {
-      if (!shape) return;
+      if (!shape || !this.isShapeInViewport(shape)) return;
 
-      this.ctx.strokeStyle = "rgba(255,255,255)";
+      this.ctx.strokeStyle = shape.strokeColor;
+      this.ctx.lineWidth = shape.strokeWidth;
+      if (shape.strokeStyle === "dashed") {
+        this.ctx.setLineDash([5, 5]);
+      } else if (shape.strokeStyle === "dotted") {
+        this.ctx.setLineDash([2, 5]);
+      } else {
+        this.ctx.setLineDash([]);
+      }
+
       if (shape.type === "rect") {
+        if (
+          shape.fillStyle &&
+          shape.backgroundColor !== "url(/transparent.png)"
+        ) {
+          this.applyFill(shape as FilledShape);
+          this.ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        }
         this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
       } else if (shape.type === "circle") {
         const { centerX, centerY, radius } = shape;
         this.ctx.beginPath();
         this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        if (
+          shape.fillStyle &&
+          shape.backgroundColor !== "url(/transparent.png)"
+        ) {
+          this.applyFill(shape as FilledShape);
+          this.ctx.fill();
+        }
         this.ctx.stroke();
         this.ctx.closePath();
       } else if (shape.type === "pencil") {

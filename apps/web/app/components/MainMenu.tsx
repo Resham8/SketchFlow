@@ -6,7 +6,21 @@ import Solid from "../icons/Solid";
 import StrokeWidth from "../icons/StrokeWidth";
 import StrokeStyle from "../icons/StrokeStyle";
 
-export default function MainMenu() {
+interface DrawingStyles {
+  strokeColor: string;
+  backgroundColor: string;
+  fillStyle: "hachure" | "cross" | "solid" | null;
+  strokeWidth: "thin" | "medium" | "thick" | null;
+  strokeStyle: "solid" | "dashed" | "dotted" | null;
+}
+
+export default function MainMenu({
+  drawingStyles,
+  setDrawingStyles,
+}: {
+  drawingStyles: DrawingStyles;
+  setDrawingStyles: (style: DrawingStyles) => void;
+}) {
   const colors: string[] = [
     "#e4e4e4",
     "#e03131",
@@ -23,16 +37,7 @@ export default function MainMenu() {
     "#ffec99",
   ];
 
-  const [activeColor, setActiveColor] = useState<string | null>(null);
-  const [activeFill, setActiveFill] = useState<
-    "hachure" | "cross" | "solid" | null
-  >(null);
-  const [activeStrokeWidth, setActiveStrokeWidth] = useState<
-    "thin" | "medium" | "thick" | null
-  >(null);
-  const [activeStrokeStyle, setActiveStrokeStyle] = useState<
-    "solid" | "dashed" | "dotted" | null
-  >(null);
+
   return (
     <div
       style={{
@@ -50,8 +55,8 @@ export default function MainMenu() {
               <ColorSquare
                 color={color}
                 key={index}
-                active={activeColor === color}
-                onClick={() => setActiveColor(color)}
+                active={drawingStyles.strokeColor === color}
+                onClick={() => setDrawingStyles({...drawingStyles, strokeColor:color})}
               />
             ))}
             <div className="h-5 border-r border-gray-300"></div>
@@ -65,8 +70,8 @@ export default function MainMenu() {
               <ColorSquare
                 color={color}
                 key={index}
-                active={activeColor === color}
-                onClick={() => setActiveColor(color)}
+                active={drawingStyles.backgroundColor === color}
+                onClick={() => setDrawingStyles({...drawingStyles, backgroundColor:color})}
               />
             ))}
             <div className="h-5 border-r border-gray-300"></div>
@@ -77,20 +82,20 @@ export default function MainMenu() {
           <span className="font-light text-sm">Fill</span>
           <div className="flex gap-1">
             <MenuSquare
-              active={activeFill === "hachure"}
-              onClick={() => setActiveFill("hachure")}
+              active={drawingStyles.fillStyle === "hachure"}
+              onClick={() => setDrawingStyles({...drawingStyles, fillStyle:"hachure"})}
             >
               {<Hachure />}
             </MenuSquare>
             <MenuSquare
-              active={activeFill === "cross"}
-              onClick={() => setActiveFill("cross")}
+              active={drawingStyles.fillStyle === "cross"}
+              onClick={() => setDrawingStyles({...drawingStyles, fillStyle:"cross"})}
             >
               {<CrossHatch />}
             </MenuSquare>
             <MenuSquare
-              active={activeFill === "solid"}
-              onClick={() => setActiveFill("solid")}
+              active={drawingStyles.fillStyle === "solid"}
+              onClick={() => setDrawingStyles({...drawingStyles,fillStyle:"solid"})}
             >
               {<Solid />}
             </MenuSquare>
@@ -100,20 +105,20 @@ export default function MainMenu() {
           <span className="font-light text-sm">Stoke Width</span>
           <div className="flex gap-1">
             <MenuSquare
-              active={activeStrokeWidth === "thin"}
-              onClick={() => setActiveStrokeWidth("thin")}
+              active={drawingStyles.strokeWidth === "thin"}
+              onClick={() => setDrawingStyles({...drawingStyles, strokeWidth:"thin"})}
             >
               {<StrokeWidth stokeWidth={1.25} />}
             </MenuSquare>
             <MenuSquare
-              active={activeStrokeWidth === "medium"}
-              onClick={() => setActiveStrokeWidth("medium")}
+              active={drawingStyles.strokeWidth === "medium"}
+              onClick={() => setDrawingStyles({...drawingStyles, strokeWidth:"medium"})}
             >
               {<StrokeWidth stokeWidth={2.5} />}
             </MenuSquare>
             <MenuSquare
-              active={activeStrokeWidth === "thick"}
-              onClick={() => setActiveStrokeWidth("thick")}
+              active={drawingStyles.strokeWidth === "thick"}
+              onClick={() => setDrawingStyles({...drawingStyles,strokeWidth:"thick"})}
             >
               {<StrokeWidth stokeWidth={3.75} />}
             </MenuSquare>
@@ -123,20 +128,20 @@ export default function MainMenu() {
           <span className="font-light text-sm">Stocke Style</span>
           <div className="flex gap-1">
             <MenuSquare
-              active={activeStrokeStyle === "solid"}
-              onClick={() => setActiveStrokeStyle("solid")}
+              active={drawingStyles.strokeStyle === "solid"}
+              onClick={() => setDrawingStyles({...drawingStyles, strokeStyle:"solid"})}
             >
               {<StrokeStyle styleType="solid" />}
             </MenuSquare>
             <MenuSquare
-              active={activeStrokeStyle === "dashed"}
-              onClick={() => setActiveStrokeStyle("dashed")}
+              active={drawingStyles.strokeStyle === "dashed"}
+              onClick={() => setDrawingStyles({...drawingStyles, strokeStyle:"dashed"})}
             >
               {<StrokeStyle styleType="dashed" />}
             </MenuSquare>
             <MenuSquare
-              active={activeStrokeStyle === "dotted"}
-              onClick={() => setActiveStrokeStyle("dotted")}
+              active={drawingStyles.strokeStyle === "dotted"}
+              onClick={() => setDrawingStyles({...drawingStyles, strokeStyle:"dotted"})}
             >
               {<StrokeStyle styleType="dotted" />}
             </MenuSquare>
