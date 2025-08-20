@@ -69,10 +69,21 @@ export class Board {
   private fillStyle: "hachure" | "cross" | "solid" | null;
   private strokeWidth: number;
   private strokeStyle: "solid" | "dashed" | "dotted" | null;
-  private isPanning: boolean = false;
-  private panX: number = 0;
-  private panY: number = 0;
   socket: WebSocket;
+  private cameraX = 0; // pixel offset for panning
+  private cameraY = 0;
+  private isPanningCamera = false;
+  private panStartScreen = { x: 0, y: 0 };
+  private lastCamera = { x: 0, y: 0 };
+
+  private wheelHandler = (e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) return;
+    e.preventDefault(); 
+
+    this.cameraX -= e.deltaX;
+    this.cameraY -= e.deltaY;
+    this.clearCanvas();
+  };
 
   constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
     this.canvas = canvas;
@@ -99,15 +110,11 @@ export class Board {
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
 
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
-    document.removeEventListener("keydown", this.keyDownHandler);
-    document.removeEventListener("keyup", this.keyUpHandler);
     this.canvas.removeEventListener("wheel", this.wheelHandler);
   }
 
   setTool(tool: Tool) {
     this.selectedTool = tool;
-    this.isPanning = tool === "select" ? this.isPanning : false;
-    this.canvas.style.cursor = this.isPanning ? "grab" : "default";
   }
 
   setDrawingStyles(styles: {
@@ -182,6 +189,10 @@ export class Board {
         this.clearCanvas();
       }
     };
+
+    this.canvas.addEventListener("wheel", this.wheelHandler as any, {
+      passive: false,
+    });
   }
 
   private hitTest(shape: Shape, x: number, y: number): boolean {
@@ -204,21 +215,27 @@ export class Board {
     return false;
   }
 
+  private screenToWorld(screenX: number, screenY: number) {
+    return {
+      x: screenX - this.cameraX,
+      y: screenY - this.cameraY,
+    };
+  }
+
   mouseDownHandler = (e: MouseEvent) => {
-    this.clicked = true;
-    const world = this.toWorldCoordinates(e.offsetX, e.offsetY);
-    this.startX = world.x;
-  this.startY = world.y;
-    if (this.isPanning || e.button === 1) {
-      if (e.button === 1) {
-        this.isPanning = true;
-        this.canvas.style.cursor = "grabbing";
-      }
-      this.lastX = e.offsetX;
-      this.lastY = e.offsetY;
+    if (e.button === 1) {
+      this.isPanningCamera = true;
+      this.panStartScreen = { x: e.clientX, y: e.clientY };
+      this.lastCamera = { x: this.cameraX, y: this.cameraY };
+      this.canvas.style.cursor = "grabbing";
       return;
     }
-    this.currentPath = [{ x: e.offsetX, y: e.offsetY }];
+
+    this.clicked = true;
+    const world = this.screenToWorld(e.offsetX, e.offsetY);
+    this.startX = world.x;
+    this.startY = world.y;
+    this.currentPath = [{ x: world.x, y: world.y }];
 
     if (this.selectedTool !== "select") {
       this.existingShapes.forEach((s) => (s.selected = false));
@@ -277,15 +294,19 @@ export class Board {
   };
 
   mouseUpHandler = (e: MouseEvent) => {
-    this.clicked = false;
-    this.canvas.style.cursor = this.isPanning ? "grab" : "default";
-    this.isPanning = e.button === 1 ? false : this.isPanning;
+    if (this.isPanningCamera) {
+      this.isPanningCamera = false;
+      this.canvas.style.cursor = "";
+      return;
+    }
 
-    if (this.isPanning || this.selectedTool === "select") {
+    this.clicked = false;
+
+    if (this.selectedTool === "select") {
       this.isDraggedShape = false;
       return;
     }
-    const world = this.toWorldCoordinates(e.offsetX, e.offsetY);
+    const world = this.screenToWorld(e.offsetX, e.offsetY);
     const width = world.x - this.startX;
     const height = world.y - this.startY;
     const selectedTool = this.selectedTool;
@@ -351,21 +372,18 @@ export class Board {
   };
 
   mouseMoveHandler = (e: MouseEvent) => {
-    const mouseX = e.offsetX;
-    const mouseY = e.offsetY;
-    const world = this.toWorldCoordinates(mouseX, mouseY);
-
-    if ((this.isPanning || e.buttons === 4) && this.clicked) {
-      const dx = mouseX - this.lastX;
-      const dy = mouseY - this.lastY;
-      this.panX += dx;
-      this.panY += dy;
-      this.lastX = mouseX;
-      this.lastY = mouseY;
-      this.canvas.style.cursor = "grabbing";
+    if (this.isPanningCamera) {
+      const dx = e.clientX - this.panStartScreen.x;
+      const dy = e.clientY - this.panStartScreen.y;
+      this.cameraX = this.lastCamera.x + dx;
+      this.cameraY = this.lastCamera.y + dy;
       this.clearCanvas();
       return;
     }
+
+    const world = this.screenToWorld(e.offsetX, e.offsetY);
+    const mouseX = world.x;
+    const mouseY = world.y;
 
     if (
       this.selectedTool === "select" &&
@@ -401,6 +419,10 @@ export class Board {
       const width = e.offsetX - this.startX;
       const height = e.offsetY - this.startY;
       this.clearCanvas();
+
+      this.ctx.save();
+      this.ctx.translate(this.cameraX, this.cameraY);
+
       this.ctx.strokeStyle = this.strokeColor;
       this.ctx.lineWidth = this.strokeWidth;
       if (this.strokeStyle === "dashed") {
@@ -444,51 +466,22 @@ export class Board {
         this.ctx.stroke();
         this.ctx.closePath();
       } else if (selectedTool === "pencil") {
-        const x = e.offsetX;
-        const y = e.offsetY;
-        this.currentPath.push({ x, y });
-
-        this.clearCanvas();
+        this.currentPath.push({ x: mouseX, y: mouseY });
 
         this.ctx.beginPath();
-        this.ctx.moveTo("this.currentPath[0].x, this.currentPath[0].y");
-        for (let i = 1; i < this.currentPath.length; i++) {
-          const point = this.currentPath[i];
-          this.ctx.lineTo(point.x, point.y);
+        if (this.currentPath.length > 0) {
+          this.ctx.moveTo(this.currentPath[0].x, this.currentPath[0].y);
+          for (let i = 1; i < this.currentPath.length; i++) {
+            const point = this.currentPath[i];
+            this.ctx.lineTo(point.x, point.y);
+          }
+          this.ctx.stroke();
+          this.ctx.closePath();
         }
-        this.ctx.stroke();
-        this.ctx.closePath();
       }
+      this.ctx.restore();
     }
   };
-
-  wheelHandler = (e: WheelEvent) => {
-    if (e.buttons === 4) {
-      this.isPanning = true;
-      this.canvas.style.cursor = "grab";
-    }
-  };
-
-  keyDownHandler = (e: KeyboardEvent) => {
-    if (e.code === "Space" && !this.isPanning) {
-      this.isPanning = true;
-      this.canvas.style.cursor = "grab";
-    }
-  };
-
-  keyUpHandler = (e: KeyboardEvent) => {
-    if (e.code === "Space") {
-      this.isPanning = false;
-      this.canvas.style.cursor = "default";
-    }
-  };
-
-  private toWorldCoordinates(x: number, y: number): { x: number; y: number } {
-    return {
-      x: x - this.panX,
-      y: y - this.panY,
-    };
-  }
 
   initMouseHandlers() {
     this.canvas.addEventListener("mousedown", this.mouseDownHandler);
@@ -496,46 +489,6 @@ export class Board {
     this.canvas.addEventListener("mouseup", this.mouseUpHandler);
 
     this.canvas.addEventListener("mousemove", this.mouseMoveHandler);
-    this.canvas.addEventListener("wheel", this.wheelHandler);
-  }
-
-  initKeyboardHandlers() {
-    document.addEventListener("keydown", this.keyDownHandler);
-    document.addEventListener("keyup", this.keyUpHandler);
-  }
-
-  private isShapeInViewport(shape: Shape): boolean {
-    const buffer = 50;
-    const viewport = {
-      minX: -this.panX - buffer,
-      minY: -this.panY - buffer,
-      maxX: -this.panX + this.canvas.width + buffer,
-      maxY: -this.panY + this.canvas.height + buffer,
-    };
-    if (shape.type === "rect") {
-      return (
-        shape.x + shape.width >= viewport.minX &&
-        shape.x <= viewport.maxX &&
-        shape.y + shape.height >= viewport.minY &&
-        shape.y <= viewport.maxY
-      );
-    } else if (shape.type === "circle") {
-      return (
-        shape.centerX - shape.radius <= viewport.maxX &&
-        shape.centerX + shape.radius >= viewport.minX &&
-        shape.centerY - shape.radius <= viewport.maxY &&
-        shape.centerY + shape.radius >= viewport.minY
-      );
-    } else if (shape.type === "pencil") {
-      return shape.points.some(
-        (p) =>
-          p.x >= viewport.minX &&
-          p.x <= viewport.maxX &&
-          p.y >= viewport.minY &&
-          p.y <= viewport.maxY
-      );
-    }
-    return false;
   }
 
   private applyFill(shape: FilledShape) {
@@ -581,10 +534,12 @@ export class Board {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.fillStyle = "#121212";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.translate(this.panX, this.panY);
     // console.log(JSON.stringify(this.existingShapes) + "existing shapes arr");
+    this.ctx.save();
+    this.ctx.translate(this.cameraX, this.cameraY);
+
     this.existingShapes.forEach((shape) => {
-      if (!shape || !this.isShapeInViewport(shape)) return;
+      if (!shape) return;
 
       this.ctx.strokeStyle = shape.strokeColor;
       this.ctx.lineWidth = shape.strokeWidth;
@@ -666,5 +621,6 @@ export class Board {
         this.ctx.setLineDash([]);
       }
     });
+    this.ctx.restore();
   }
 }
