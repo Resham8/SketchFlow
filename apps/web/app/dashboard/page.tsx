@@ -74,14 +74,14 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <div className="text-right">
+              {/* <div className="text-right">
                 <p className="text-sm text-gray-600 font-light">
                   Welcome back,
                 </p>
                 <p className="font-caveat font-bold text-lg text-gray-900">
                   John Doe
                 </p>
-              </div>
+              </div> */}
               <button className="text-gray-600 hover:text-gray-900 transition-colors font-medium text-sm underline">
                 Sign Out
               </button>
@@ -174,7 +174,6 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
-                {/* Action Button */}
                 <Button
                   variant="outline"
                   size="sm"
